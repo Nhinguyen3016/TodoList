@@ -1,8 +1,10 @@
-﻿using APIToDoList.Model;
+﻿using APIToDoList.Data;  
+using APIToDoList.Model;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
-using APIToDoList.Model; 
+using System.Threading.Tasks;
 
 namespace WebApplication1.Controllers
 {
@@ -10,59 +12,73 @@ namespace WebApplication1.Controllers
     [ApiController]
     public class ProductsController : ControllerBase
     {
-        // Static list to hold ToDo items. In a real-world scenario, this would be replaced with a database.
-        private static List<TodoItem> TodoItems = new List<TodoItem>();
+        private readonly ApplicationDbContext _context;
 
-        [HttpGet]
-        public ActionResult<IEnumerable<TodoItem>> GetAll()
+        public ProductsController(ApplicationDbContext context)
         {
-            return Ok(TodoItems);
+            _context = context;
         }
 
-        [HttpGet("{id}")]
-        public ActionResult<TodoItem> Get(int id)
+       
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<TodoItem>>> GetAll()
         {
-            var item = TodoItems.FirstOrDefault(x => x.Id == id);
+            return Ok(await _context.Products.ToListAsync());
+        }
+
+       
+        [HttpGet("{id}")]
+        public async Task<ActionResult<TodoItem>> Get(int id)
+        {
+            var item = await _context.Products.FindAsync(id);
             if (item == null)
                 return NotFound();
             return Ok(item);
         }
 
+        
         [HttpPost]
-        public ActionResult<TodoItem> Post([FromBody] TodoItem newItem)
+        public async Task<ActionResult<TodoItem>> Post([FromBody] TodoItem newItem)
         {
             if (newItem == null)
                 return BadRequest();
 
-            newItem.Id = TodoItems.Count > 0 ? TodoItems.Max(x => x.Id) + 1 : 1;
-            TodoItems.Add(newItem);
+            _context.Products.Add(newItem);
+            await _context.SaveChangesAsync();
+
             return CreatedAtAction(nameof(Get), new { id = newItem.Id }, newItem);
         }
 
+      
         [HttpPut("{id}")]
-        public ActionResult Put(int id, [FromBody] TodoItem updatedItem)
+        public async Task<ActionResult> Put(int id, [FromBody] TodoItem updatedItem)
         {
             if (updatedItem == null)
                 return BadRequest();
 
-            var existingItem = TodoItems.FirstOrDefault(x => x.Id == id);
+            var existingItem = await _context.Products.FindAsync(id);
             if (existingItem == null)
                 return NotFound();
 
             existingItem.Name = updatedItem.Name;
             existingItem.IsComplete = updatedItem.IsComplete;
 
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
+        // Delete a To-Do item
         [HttpDelete("{id}")]
-        public ActionResult Delete(int id)
+        public async Task<ActionResult> Delete(int id)
         {
-            var item = TodoItems.FirstOrDefault(x => x.Id == id);
+            var item = await _context.Products.FindAsync(id);
             if (item == null)
                 return NotFound();
 
-            TodoItems.Remove(item);
+            _context.Products.Remove(item);
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
     }
